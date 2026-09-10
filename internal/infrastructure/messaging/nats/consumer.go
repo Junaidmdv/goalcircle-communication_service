@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Junaidmdv/goalcircle-communication_service/pkg/logger"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -23,12 +24,14 @@ type ConsumerConfig struct {
 }
 
 type JetStreamManager struct {
-	js jetstream.JetStream
+	js     jetstream.JetStream
+	logger logger.Logger
 }
 
-func NewJetStreamManager(js jetstream.JetStream) *JetStreamManager {
+func NewJetStreamManager(js jetstream.JetStream, logger logger.Logger) *JetStreamManager {
 	return &JetStreamManager{
-		js: js,
+		js:     js,
+		logger: logger,
 	}
 }
 
@@ -84,18 +87,18 @@ func (m *JetStreamManager) CreateConsumer(
 	return consumer, nil
 }
 
-func (m *JetStreamManager) Consume(ctx context.Context, consumer jetstream.Consumer) (jetstream.ConsumeContext, error) {
+func (m *JetStreamManager) Consume(ctx context.Context, consumer jetstream.Consumer, hanlder func(jetstream.Msg)) (jetstream.ConsumeContext, error) {
 
 	cc, err := consumer.Consume(
 		func(msg jetstream.Msg) {
-
+			hanlder(msg)
 		},
 		jetstream.ConsumeErrHandler(func(consumeCtx jetstream.ConsumeContext, err error) {
-
+			m.logger.Error("NATS JetStream consumer error", "error", err)
 		}))
 
 	if err != nil {
-		return nil, fmt.Errorf("failed consume message")
+		return nil, fmt.Errorf("failed to start consumer: %w", err)
 	}
 
 	return cc, nil
